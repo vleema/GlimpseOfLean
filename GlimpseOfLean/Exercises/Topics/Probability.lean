@@ -51,7 +51,11 @@ def IndepSet (A B : Set Ω) : Prop := ℙ (A ∩ B) = ℙ A * ℙ B
 
 /-- If `A` is independent of `B`, then `B` is independent of `A`. -/
 lemma IndepSet.symm : IndepSet A B → IndepSet B A := by {
-  sorry
+  intro h
+  unfold IndepSet
+  unfold IndepSet at h
+  rw [inter_comm, mul_comm]
+  exact h
 }
 
 /- Many lemmas in measure theory require sets to be measurable (`MeasurableSet A`).
@@ -61,29 +65,83 @@ That tactic produces measurability proofs. -/
 -- Hints: `compl_eq_univ_diff`, `measure_diff`, `inter_univ`, `measure_compl`, `ENNReal.mul_sub`
 lemma IndepSet.compl_right (hA : MeasurableSet A) (hB : MeasurableSet B) :
     IndepSet A B → IndepSet A Bᶜ := by {
-  sorry
+  intro h
+  unfold IndepSet
+  unfold IndepSet at h
+  rw [measure_compl, ENNReal.mul_sub, measure_univ]
+  ring_nf
+  rw [compl_eq_univ_diff, inter_diff_distrib_left, inter_univ]
+  rw [measure_diff, ← h]
+  exact inter_subset_left
+  measurability
+  exact measure_ne_top ℙ (A ∩ B)
+  exact fun a a ↦ measure_ne_top ℙ A
+  measurability
+  exact measure_ne_top ℙ B
 }
 
 /- Apply `IndepSet.compl_right` to prove this generalization. It is good practice to add the iff
 version of some frequently used lemmas, this allows us to use them inside `rw` tactics. -/
 lemma IndepSet.compl_right_iff (hA : MeasurableSet A) (hB : MeasurableSet B) :
     IndepSet A Bᶜ ↔ IndepSet A B := by {
-  sorry
-}
+  constructor
+  · intro h
+    unfold IndepSet at h
+    unfold IndepSet
+    have h₁ : ℙ A = ℙ ((A ∩ B) ∪ (A ∩ Bᶜ)) := by rw [← Eq.symm (inter_union_compl A B)]
+    rw [measure_union] at h₁ 
+    have h₂ : ℙ (A ∩ B) = ℙ A - ℙ (A ∩ Bᶜ) := by
+      refine ENNReal.eq_sub_of_add_eq' ?_ (id (Eq.symm h₁))
+      exact measure_ne_top ℙ A
+    rw [h] at h₂
+    calc
+      ℙ (A ∩ B) 
+        = ℙ A - ℙ A * ℙ Bᶜ       := h₂ 
+      _ = ℙ A * 1 - ℙ A * ℙ Bᶜ   := by rw [mul_one]
+      _ = ℙ A * (1 - ℙ Bᶜ)       := by rw [← ENNReal.mul_sub] ; exact λ a a ↦ measure_ne_top ℙ A
+      _ = ℙ A * (1 - (1 - ℙ B))  := by rw [prob_compl_eq_one_sub] ; exact hB
+      _ = ℙ A * ℙ B              := by 
+        rw [ENNReal.sub_sub_cancel]
+        exact ENNReal.one_ne_top  
+        exact prob_le_one
+    refine Disjoint.inter_left' A ?_
+    refine Disjoint.inter_right' A ?_
+    exact disjoint_compl_right_iff_subset.mpr λ ⦃a⦄ a ↦ a
+    measurability
+  · exact IndepSet.compl_right hA hB
+  }
 
 -- Use what you have proved so far
 lemma IndepSet.compl_left (hA : MeasurableSet A) (hB : MeasurableSet B) (h : IndepSet A B) :
     IndepSet Aᶜ B := by{
-  sorry
+  exact symm ((IndepSet.compl_right_iff hB hA).2 (symm h))
 }
 
 /- Can you write and prove a lemma `IndepSet.compl_left_iff`, following the examples above?-/
 
 -- Your lemma here
+lemma IndepSet.compl_left_iff (hA : MeasurableSet A) (hB : MeasurableSet B) :
+    IndepSet Aᶜ B ↔ IndepSet A B := by {
+  constructor
+  · intro h
+    exact symm ((IndepSet.compl_right_iff hB hA).1 (symm h))
+  · intro h
+    exact symm ((IndepSet.compl_right_iff hB hA).2 (symm h))
+}
 
 -- Hint: `ENNReal.mul_self_eq_self_iff`
 lemma indep_self (h : IndepSet A A) : ℙ A = 0 ∨ ℙ A = 1 := by {
-  sorry
+  unfold IndepSet at h
+  rw [inter_self] at h
+  have h₁ := (ENNReal.mul_self_eq_self_iff (ℙ A)).1 (symm h)
+  rcases h₁ with h0 | h1 | ht
+  · case inl =>
+      exact Or.inl h0
+  · case inr.inl =>
+      exact Or.inr h1
+  · case inr.inr => 
+      have hc := measure_ne_top ℙ A
+      contradiction
 }
 
 /-
@@ -103,14 +161,22 @@ We could start every proof with `rw [condProb]`, but it is more convenient to wr
 properties of `condProb` first and then use those. -/
 
 -- Hint : `measure_inter_null_of_null_left`
+#check measure_inter_null_of_null_left
 @[simp] -- this makes the lemma usable by `simp`
 lemma condProb_zero_left (A B : Set Ω) (hA : ℙ A = 0) : ℙ(A|B) = 0 := by {
-  sorry
+  rw [condProb]
+  have h := measure_inter_null_of_null_left B hA
+  simp
+  exact h
 }
 
 @[simp]
 lemma condProb_zero_right (A B : Set Ω) (hB : ℙ B = 0) : ℙ(A|B) = 0 := by {
-  sorry
+  rw [condProb]
+  simp
+  have h := measure_inter_null_of_null_left A hB
+  rw [inter_comm] at h
+  exact h
 }
 
 /- What other basic lemmas could be useful? Are there other "special" sets for which `condProb`
@@ -123,7 +189,31 @@ There is no functional difference between those two keywords. -/
 
 /-- **Bayes Theorem** -/
 theorem bayesTheorem (hA : ℙ A ≠ 0) (hB : ℙ B ≠ 0) : ℙ(A|B) = ℙ A * ℙ(B|A) / ℙ B := by {
-  sorry
+  rw [condProb, condProb]
+  have h₁ : ℙ (A ∩ B) = ℙ A * (ℙ (B ∩ A) / ℙ A) := by
+    calc
+      ℙ (A ∩ B) 
+        = ℙ B * (ℙ (A ∩ B) / ℙ B) := by 
+          rw [← ENNReal.mul_comm_div] 
+          rw [ENNReal.div_self]
+          simp
+          exact hB
+          exact measure_ne_top ℙ B
+      _ = ℙ B * (ℙ A * (ℙ (B ∩ A) / ℙ A) / ℙ B) := by 
+          conv_rhs => 
+            arg 2 ; arg 1  
+            rw [ENNReal.mul_div_cancel] 
+            rw [inter_comm]
+            rfl
+            exact hA
+            exact measure_ne_top ℙ A
+      _ = ℙ A * (ℙ (B ∩ A) / ℙ A) := by
+          rw [← @ENNReal.mul_comm_div]
+          rw [ENNReal.div_self]
+          simp
+          exact hB
+          exact measure_ne_top ℙ B
+  rw [h₁]
 }
 
 /- Did you really need all those hypotheses?
@@ -137,6 +227,15 @@ theorem bayesTheorem' (A B : Set Ω) : ℙ(A|B) = ℙ A * ℙ(B|A) / ℙ B := by
 }
 
 lemma condProb_of_indepSet (h : IndepSet B A) (hB : ℙ B ≠ 0) : ℙ(A|B) = ℙ A := by {
-  sorry
+  rw [condProb]
+  calc
+    ℙ (A ∩ B) / ℙ B
+      = (ℙ A * ℙ B) / ℙ B := by 
+        rw [IndepSet, inter_comm, mul_comm] at h
+        rw [h]
+    _ = ℙ A               := by 
+        rw [ENNReal.mul_div_cancel_right] 
+        exact hB 
+        exact measure_ne_top ℙ B
 }
 
